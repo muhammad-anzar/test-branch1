@@ -1,0 +1,55 @@
+name: Branch Lifecycle
+
+on:
+  push:
+    branches:
+      - '**'
+  delete:
+
+jobs:
+  deploy:
+    if: github.event_name == 'push'
+    runs-on: [self-hosted]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        run: |
+          # Example for Minikube
+          if kubectl config get-contexts minikube &>/dev/null; then
+            kubectl config use-context minikube
+          fi
+
+      - name: Create namespace if missing
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+          kubectl get ns "$BRANCH" || kubectl create ns "$BRANCH"
+        env:
+          GITHUB_REF: ${{ github.ref }}
+
+      - name: Deploy hello‑app
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+          # apply Deployment & Service into that namespace
+          kubectl apply -n "$BRANCH" -f argocd/base/hello-app/deployment.yaml
+          kubectl apply -n "$BRANCH" -f argocd/base/hello-app/service.yaml
+        env:
+          GITHUB_REF: ${{ github.ref }}
+
+  cleanup:
+    if: >
+      github.event_name == 'delete' &&
+      github.event.ref_type == 'branch'
+    runs-on: [self-hosted, linux]
+    steps:
+      - name: Set up kubectl
+        run: |
+          if kubectl config get-contexts minikube &>/dev/null; then
+            kubectl config use-context minikube
+          fi
+
+      - name: Delete namespace
+        run: |
+          NS="${{ github.event.ref }}"
+          kubectl delete ns "$NS" --ignore-not-found
