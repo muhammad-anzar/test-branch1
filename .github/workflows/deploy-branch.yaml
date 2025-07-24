@@ -41,15 +41,44 @@ jobs:
     if: >
       github.event_name == 'delete' &&
       github.event.ref_type == 'branch'
-    runs-on: [self-hosted, linux]
+    runs-on: self-hosted
     steps:
       - name: Set up kubectl
         run: |
           if kubectl config get-contexts minikube &>/dev/null; then
             kubectl config use-context minikube
           fi
-
-      - name: Delete namespace
+  
+      - name: Force delete namespace
+        shell: bash
         run: |
+          force_delete_namespace() {
+            local namespace=$1
+            local context=$2
+            echo "--- Forcefully cleaning namespace '$namespace' on context '$context' ---"
+  
+            echo "Patching and deleting Jobs in '$namespace'..."
+            job_names=$(kubectl get jobs -n "$namespace" --context "$context" -o custom-columns=NAME:.metadata.name --no-headers 2>/dev/null || true)
+  
+            if [ -n "$job_names" ]; then
+              echo "$job_names" | while IFS= read -r job_name; do
+                if [ -n "$job_name" ]; then
+                  echo "  - Patching Job '$job_name' to remove finalizers..."
+                  kubectl patch job "$job_name" -n "$namespace" --context "$context" --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' >/dev/null 2>&1 || true
+                  echo "  - Deleting Job '$job_name'..."
+                  kubectl delete job "$job_name" -n "$namespace" --context "$context" --ignore-not-found=true --timeout=30s || true
+                fi
+              done
+            else
+              echo "  - No jobs found to clean."
+            fi
+  
+            echo "Deleting namespace '$namespace'..."
+            kubectl delete namespace "$namespace" --context "$context" --ignore-not-found=true
+            echo "--- Namespace '$namespace' cleanup initiated. Note: final deletion is async. ---"
+          }
+  
           NS="${{ github.event.ref }}"
-          kubectl delete ns "$NS" --ignore-not-found
+          CONTEXT="minikube"
+          force_delete_namespace "$NS" "$CONTEXT"
+
