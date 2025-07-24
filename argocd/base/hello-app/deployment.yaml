@@ -15,14 +15,15 @@ spec:
     spec:
       containers:
       - name: hello
-        image: nginx:latest
+        image: hashicorp/http-echo:0.2.3
+        command: ["/http-echo"]
         args:
-        - "-text=Hello from $(POD_NAMESPACE)"
+          - "-text=Hello from $(POD_NAMESPACE)"
         env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         resources:
           limits:
             memory: "128Mi"
