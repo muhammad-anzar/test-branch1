@@ -2,17 +2,46 @@ name: Branch Lifecycle
 
 on:
   push:
-    branches:
-      - '**'
+    branches-ignore:
+      - main
+      - dev
   delete:
+    branches-ignore:
+      - main
+      - dev
 
 jobs:
-  deploy:
-    if: github.event_name == 'push'
+  create-namespace:
+    if: |
+      github.event_name == 'push' &&
+      !contains('main dev', github.ref_name)
     runs-on: [self-hosted]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Prepare Git Metadata
+        run: |
+          echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "REPO=https://github.com/${GITHUB_REPOSITORY}.git" >> $GITHUB_ENV
+          echo "USER=${{ github.actor }}" >> $GITHUB_ENV
+          echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
+
+      - name: Create ArgoCD Configs
+        run: |
+          mkdir -p configurations/"$BRANCH"
+
+          sed -e "s|BRANCH|$BRANCH|g" \
+              -e "s|REPO|$REPO|g" \
+              -e "s|USERNAME|$USER|g" \
+              -e "s|EMAIL|$EMAIL|g" \
+              branch-template/minikube/hello-app-argocd.template \
+              > configurations/"$BRANCH"/hello-app-argocd.yaml
+
+          # sed -e "s|BRANCH|$BRANCH|g" \
+          #     -e "s|USERNAME|$USER|g" \
+          #     -e "s|EMAIL|$EMAIL|g" \
+          #     branch-template/minikube/values.template \
+          #     > configurations/"$BRANCH"/values.yaml
 
       - name: Get git information
         run: |
@@ -31,24 +60,22 @@ jobs:
 
       - name: Create namespace if missing
         run: |
-          BRANCH="${GITHUB_REF##*/}"
+          #BRANCH="${GITHUB_REF##*/}"
           kubectl get ns "$BRANCH" || kubectl create ns "$BRANCH"
         env:
           GITHUB_REF: ${{ github.ref }}
 
-      - name: Deploy hello‑app
-        run: |
-          BRANCH="${GITHUB_REF##*/}"
-          # apply Deployment & Service into that namespace
-          kubectl apply -n "$BRANCH" -f argocd/base/hello-app/deployment.yaml
-          kubectl apply -n "$BRANCH" -f argocd/base/hello-app/service.yaml
-        env:
-          GITHUB_REF: ${{ github.ref }}
-
+  generate-config:
+    if: |
+      github.event_name == 'push' &&
+      !contains('main dev', github.ref_name)
+    runs-on: [self-hosted]
+    steps:
   cleanup:
-    if: >
+    if: |
       github.event_name == 'delete' &&
-      github.event.ref_type == 'branch'
+      github.event.ref_type == 'branch' &&
+      !contains('main dev', github.event.ref)
     runs-on: self-hosted
     steps:
       - name: Set up kubectl
