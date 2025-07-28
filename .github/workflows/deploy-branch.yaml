@@ -26,6 +26,21 @@ jobs:
           echo "USER=${{ github.actor }}" >> $GITHUB_ENV
           echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
 
+      - name: Set up kubectl
+        run: |
+          # Example for Minikube
+          if kubectl config get-contexts minikube &>/dev/null; then
+            kubectl config use-context minikube
+          fi
+
+      - name: Create namespace if missing
+        run: |
+          #BRANCH="${GITHUB_REF##*/}"
+          kubectl get ns "$BRANCH" || kubectl create ns "$BRANCH"
+        env:
+          GITHUB_REF: ${{ github.ref }}
+
+
       - name: Create ArgoCD Configs
         run: |
           mkdir -p configurations/"$BRANCH"
@@ -42,20 +57,6 @@ jobs:
           #     -e "s|EMAIL|$EMAIL|g" \
           #     branch-template/minikube/values.template \
           #     > configurations/"$BRANCH"/values.yaml
-      - name: Set up kubectl
-        run: |
-          # Example for Minikube
-          if kubectl config get-contexts minikube &>/dev/null; then
-            kubectl config use-context minikube
-          fi
-
-      - name: Create namespace if missing
-        run: |
-          #BRANCH="${GITHUB_REF##*/}"
-          kubectl get ns "$BRANCH" || kubectl create ns "$BRANCH"
-        env:
-          GITHUB_REF: ${{ github.ref }}
-
       - name: Create ArgoCD application for new branch
         run: |
           echo "Applying ArgoCD Application manifest to context minikube..."
