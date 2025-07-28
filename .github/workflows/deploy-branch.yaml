@@ -18,7 +18,7 @@ jobs:
         run: |
           # Get git repo, username, email, branch
           echo "BRANCH=${{ github.ref_name }}"
-          echo "REPO=${{ github.repository }}"
+          echo "REPO=https://github.com/${GITHUB_REPOSITORY}"
           echo "USER=${{ github.actor }}"
           echo "EMAIL=$(git log -1 --pretty=format:'%ae')"
 
