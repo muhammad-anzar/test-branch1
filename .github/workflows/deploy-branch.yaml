@@ -11,7 +11,7 @@ on:
       - dev
 
 jobs:
-  create-namespace:
+  deploy:
     if: |
       github.event_name == 'push' &&
       !contains('main dev', github.ref_name)
@@ -65,12 +65,11 @@ jobs:
         env:
           GITHUB_REF: ${{ github.ref }}
 
-  generate-config:
-    if: |
-      github.event_name == 'push' &&
-      !contains('main dev', github.ref_name)
-    runs-on: [self-hosted]
-    steps:
+      - name: Create ArgoCD application for new branch
+        run: |
+          echo "Applying ArgoCD Application manifest to context minikube..."
+          echo configurations/"$BRANCH"/hello-app-argocd.yaml
+          kubectl -n argocd apply --context=minikube -f configurations/"$BRANCH"/hello-app-argocd.yaml
   cleanup:
     if: |
       github.event_name == 'delete' &&
