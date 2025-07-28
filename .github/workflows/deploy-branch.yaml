@@ -14,6 +14,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get git information
+        run: |
+          # Get git repo, username, email, branch
+          echo "BRANCH=${{ github.ref_name }}"
+          echo "REPO=${{ github.repository }}"
+          echo "USER=${{ github.actor }}"
+          echo "EMAIL=$(git log -1 --pretty=format:'%ae')"
+
       - name: Set up kubectl
         run: |
           # Example for Minikube
