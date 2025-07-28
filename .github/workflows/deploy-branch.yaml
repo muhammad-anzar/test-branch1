@@ -63,15 +63,27 @@ jobs:
           cat configurations/"$BRANCH"/hello-app-argocd.yaml
           kubectl -n argocd apply --context=minikube -f configurations/"$BRANCH"/hello-app-argocd.yaml
   
-      - name: Commit & Push Configuration Files
-        run: |
-          git config user.name "${{ github.actor }}"
-          git config user.email "$(git log -1 --pretty=format:'%ae')"
+      # - name: Commit & Push Configuration Files
+      #   run: |
+      #     git config user.name "${{ github.actor }}"
+      #     git config user.email "$(git log -1 --pretty=format:'%ae')"
           
-          git status
+      #     git status
+      #     git add configurations/"$BRANCH"
+      #     git commit -m "Initialize deployment config for branch [$BRANCH]"
+      #     git push --set-upstream origin "$BRANCH"
+      #   env:
+      #     BRANCH: ${{ github.ref_name }}
+
+      - name: Push changes with PAT
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_PAT }}
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
           git add configurations/"$BRANCH"
-          git commit -m "Initialize deployment config for branch [$BRANCH]"
-          git push --set-upstream origin "$BRANCH"
+          git commit -m "Update config for [$BRANCH]" || echo "Nothing to commit"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/muhammad-anzar/test-branch1.git HEAD:$BRANCH
         env:
           BRANCH: ${{ github.ref_name }}
 
