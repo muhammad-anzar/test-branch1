@@ -131,4 +131,3 @@ jobs:
           NS="${{ github.event.ref }}"
           CONTEXT="minikube"
           force_delete_namespace "$NS" "$CONTEXT"
-
