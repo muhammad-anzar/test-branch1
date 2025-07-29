@@ -1,0 +1,35 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: test-branch
+  labels:
+    branch: test-branch
+    user: "muhammad-anzar"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: test-branch
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/muhammad-anzar/test-branch1.git
+    targetRevision: test-branch
+    path: charts/hello-app
+    helm:
+      values: |
+        replicaCount: 1
+        image:
+          repository: hashicorp/http-echo
+          tag: "0.2.3"
+        service:
+          port: 5678
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: test-branch
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hello-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/muhammad-anzar/test-branch1.git
+    targetRevision: main
+    path: charts/hello-app
+    helm:
+      values: |
+        replicaCount: 1
+        image:
+          repository: hashicorp/http-echo
+          tag: "0.2.3"
+        service:
+          port: 5678
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hello-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

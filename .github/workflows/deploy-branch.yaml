@@ -2,15 +2,13 @@ name: Branch Lifecycle
 
 on:
   push:
-    branches:
-      - test-branch
-      - test-branch1
-      - test-branch2
+    branches-ignore:
+      - main
+      - dev
   delete:
-    branches:
-      - test-branch
-      - test-branch1
-      - test-branch2
+    branches-ignore:
+      - main
+      - dev
 
 jobs:
   deploy:
