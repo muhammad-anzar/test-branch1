@@ -17,7 +17,7 @@ jobs:
       # The branch name from the workflow input
       NAMESPACE: ${{ github.event.inputs.branch }}
       # Change this to the second repo you want to target
-      TARGET_REPO: https://github.com/muhammad-anzar/test-branch.git
+      TARGET_REPO: muhammad-anzar/test-branch
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
