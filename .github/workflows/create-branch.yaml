@@ -19,6 +19,7 @@ jobs:
       # Change this to the second repo you want to target
       TARGET_REPO: muhammad-anzar/test-branch
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN_PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
     steps:
       - name: Validate branch name
@@ -66,7 +67,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ env.TARGET_REPO }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN_PAT }}
           fetch-depth: 0
           path: target-repo
 
