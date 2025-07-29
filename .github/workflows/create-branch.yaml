@@ -18,7 +18,7 @@ jobs:
       NAMESPACE: ${{ github.event.inputs.branch }}
       # Change this to the second repo you want to target
       TARGET_REPO: muhammad-anzar/test-branch
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.PERSONAL_PAT }}
       GITHUB_TOKEN_PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
     steps:
