@@ -1,0 +1,80 @@
+name: Create Branch in Two Repos
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch/namespace name (lowercase, alphanumeric + hyphens, ≤50 chars)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  create-branches:
+    runs-on: ubuntu-latest
+    env:
+      # The branch name from the workflow input
+      NAMESPACE: ${{ github.event.inputs.branch }}
+      # Change this to the second repo you want to target
+      TARGET_REPO: https://github.com/muhammad-anzar/test-branch.git
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Validate branch name
+        shell: bash
+        run: |
+          if [ -z "$NAMESPACE" ]; then
+            echo "Namespace/branch name is required."
+            exit 1
+          fi
+
+          if ! [[ "$NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] || [ ${#NAMESPACE} -gt 50 ]; then
+            echo "Invalid namespace/branch name: '$NAMESPACE'"
+            echo "Must match ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ and be ≤ 50 chars."
+            exit 1
+          fi
+
+          # Check remote existence
+          if git ls-remote --exit-code --heads origin "$NAMESPACE" &>/dev/null; then
+            echo "Error: remote branch 'origin/$NAMESPACE' already exists."
+            exit 1
+          fi
+
+          # Check local existence (rare in a fresh runner)
+          if git branch --list "$NAMESPACE" &>/dev/null; then
+            echo "Error: local branch '$NAMESPACE' already exists."
+            exit 1
+          fi
+
+      - name: Checkout test-branch1 repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create & push branch in current repo
+        shell: bash
+        run: |
+          echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
+          git config user.name "${{ github.actor }}"
+          git config user.email "$EMAIL"
+          git checkout -b "$NAMESPACE"
+          git push -u origin "$NAMESPACE"
+
+      - name: Checkout test-branch repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TARGET_REPO }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          path: target-repo
+
+      - name: Create & push branch in second repo
+        working-directory: target-repo
+        shell: bash
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "$EMAIL"
+          git checkout -b "$NAMESPACE"
+          git push -u origin "$NAMESPACE"
