@@ -3,16 +3,36 @@ name: Branch Lifecycle
 on:
   push:
     branches:
-      - '**'
+      - test-branch
+      - test-branch1
+      - test-branch2
+    branches-ignore:
+      - main
+      - dev
   delete:
+    branches:
+      - test-branch
+      - test-branch1
+      - test-branch2
+    branches-ignore:
+      - main
+      - dev
 
 jobs:
   deploy:
-    if: github.event_name == 'push'
+    if: |
+      github.event_name == 'push' &&
+      !contains('main dev', github.ref_name)
     runs-on: [self-hosted]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Prepare Git Metadata
+        run: |
+          echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "REPO=https://github.com/${GITHUB_REPOSITORY}.git" >> $GITHUB_ENV
+          echo "USER=${{ github.actor }}" >> $GITHUB_ENV
+          echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
 
       - name: Set up kubectl
         run: |
@@ -23,24 +43,62 @@ jobs:
 
       - name: Create namespace if missing
         run: |
-          BRANCH="${GITHUB_REF##*/}"
+          #BRANCH="${GITHUB_REF##*/}"
           kubectl get ns "$BRANCH" || kubectl create ns "$BRANCH"
         env:
           GITHUB_REF: ${{ github.ref }}
 
-      - name: Deploy hello‑app
+
+      - name: Create ArgoCD Configs
         run: |
-          BRANCH="${GITHUB_REF##*/}"
-          # apply Deployment & Service into that namespace
-          kubectl apply -n "$BRANCH" -f argocd/base/hello-app/deployment.yaml
-          kubectl apply -n "$BRANCH" -f argocd/base/hello-app/service.yaml
+          mkdir -p configurations/"$BRANCH"
+
+          sed -e "s|BRANCH|$BRANCH|g" \
+              -e "s|REPO|$REPO|g" \
+              -e "s|USERNAME|$USER|g" \
+              -e "s|EMAIL|$EMAIL|g" \
+              branch-template/minikube/hello-app-argocd.template \
+              > configurations/"$BRANCH"/hello-app-argocd.yaml
+
+          # sed -e "s|BRANCH|$BRANCH|g" \
+          #     -e "s|USERNAME|$USER|g" \
+          #     -e "s|EMAIL|$EMAIL|g" \
+          #     branch-template/minikube/values.template \
+          #     > configurations/"$BRANCH"/values.yaml
+      - name: Create ArgoCD application for new branch
+        run: |
+          echo "Applying ArgoCD Application manifest to context minikube..."
+          cat configurations/"$BRANCH"/hello-app-argocd.yaml
+          kubectl -n argocd apply --context=minikube -f configurations/"$BRANCH"/hello-app-argocd.yaml
+  
+      # - name: Commit & Push Configuration Files
+      #   run: |
+      #     git config user.name "${{ github.actor }}"
+      #     git config user.email "$(git log -1 --pretty=format:'%ae')"
+          
+      #     git status
+      #     git add configurations/"$BRANCH"
+      #     git commit -m "Initialize deployment config for branch [$BRANCH]"
+      #     git push --set-upstream origin "$BRANCH"
+      #   env:
+      #     BRANCH: ${{ github.ref_name }}
+
+      - name: Push changes with PAT
         env:
-          GITHUB_REF: ${{ github.ref }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_PAT }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add configurations/"$BRANCH"
+          git commit -m "Update config for [$BRANCH]" || echo "Nothing to commit"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/muhammad-anzar/test-branch1.git HEAD:$BRANCH
 
   cleanup:
-    if: >
+    if: |
       github.event_name == 'delete' &&
-      github.event.ref_type == 'branch'
+      github.event.ref_type == 'branch' &&
+      !contains('main dev', github.event.ref)
     runs-on: self-hosted
     steps:
       - name: Set up kubectl
@@ -81,4 +139,3 @@ jobs:
           NS="${{ github.event.ref }}"
           CONTEXT="minikube"
           force_delete_namespace "$NS" "$CONTEXT"
-
