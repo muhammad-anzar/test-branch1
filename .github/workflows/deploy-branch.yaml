@@ -130,4 +130,9 @@ jobs:
   
           NS="${{ github.event.ref }}"
           CONTEXT="minikube"
+          # First, delete the ArgoCD application that manages the resources.
+          echo "Deleting Azure ArgoCD Application: $NS..."
+          kubectl delete application "$NS" -n argocd --context "$CONTEXT" --ignore-not-found=true
+          # Wait briefly for the ArgoCD controller to start terminating resources.
+          sleep 5
           force_delete_namespace "$NS" "$CONTEXT"
