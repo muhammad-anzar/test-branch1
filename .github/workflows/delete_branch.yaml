@@ -1,0 +1,51 @@
+name: Cleanup Branch from test-branch and test-branch1
+
+on:
+  workflow_dispatch:
+    inputs:
+      BRANCH_TO_DELETE:
+        description: 'Branch name to delete (must not be main/dev)'
+        required: true
+
+env:
+  REPOS: |
+    muhammad-anzar/test-branch
+    muhammad-anzar/test-branch1
+
+jobs:
+  delete-branch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepare Git Metadata
+        run: |
+          echo "USER=${{ github.actor }}" >> $GITHUB_ENV
+          echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
+      - name: Validate input branch
+        run: |
+          BRANCH="${{ github.event.inputs.BRANCH_TO_DELETE }}"
+          if [[ "$BRANCH" == "main" || "$BRANCH" == "dev" ]]; then
+            echo "❌ Refusing to delete protected branch: $BRANCH"
+            exit 1
+          fi
+
+      - name: Delete branch from repositories if it exists
+        env:
+          BRANCH: ${{ github.event.inputs.BRANCH_TO_DELETE }}
+          TOKEN: ${{ secrets.PAT }}
+        run: |
+          for REPO in $REPOS; do
+            echo "🔍 Checking if branch '$BRANCH' exists in $REPO..."
+            if git ls-remote --exit-code --heads https://x-access-token:$TOKEN@github.com/$REPO.git "$BRANCH" > /dev/null; then
+              echo "✅ Branch found. Proceeding to delete..."
+              git init --quiet
+              git config user.name "$USER"
+              git config user.email "$EMAIL"
+              git remote add origin https://x-access-token:$TOKEN@github.com/$REPO.git
+              git push origin --delete "$BRANCH"
+              rm -rf .git
+              echo "🗑️ Deleted branch '$BRANCH' from $REPO"
+            else
+              echo "⚠️ Branch '$BRANCH' does not exist in $REPO. Skipping."
+            fi
+          done
