@@ -77,5 +77,4 @@ jobs:
           git config user.name "${{ github.actor }}"
           git config user.email "$EMAIL"
           git checkout -b "$NAMESPACE"
-          #git remote set-url origin https://${{ github.actor }}:x-access-token:${{ secrets.PAT }}@github.com/${{ env.TARGET_REPO }}.git
           git push -u origin "$NAMESPACE"
