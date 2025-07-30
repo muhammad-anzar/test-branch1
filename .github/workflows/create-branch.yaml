@@ -63,16 +63,16 @@ jobs:
           git push -u origin "$NAMESPACE"
 
       - name: Export PAT to ENV
-        run: echo "PERSONAL_ACCESS_TOKEN=${{ secrets.PERSONAL_ACCESS_TOKEN }}" >> $GITHUB_ENV
+        run: echo "PERSONAL_ACCESS_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Debug secrets
-        run: echo "PERSONAL_ACCESS_TOKEN=${{ secrets.PERSONAL_ACCESS_TOKEN != '' }}"
+        run: echo "PERSONAL_ACCESS_TOKEN=${{ secrets.GITHUB_TOKEN != '' }}"
 
       - name: Checkout test-branch repository
         uses: actions/checkout@v4
         with:
           repository: ${{ env.TARGET_REPO }}
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           path: target-repo
 
