@@ -1,9 +1,9 @@
-name: Test Branch Lifecycle
+name: Branch Lifecycle
 
 on:
   push:
     branches:
-      - gha-workflow-branch
+      - gha-workflow-branch1
 
 #   TBD: Require to add branch protection on branch lifecycle
 #     branches-ignore:
@@ -18,9 +18,9 @@ on:
   workflow_dispatch:
     inputs:
       reason:
-      description: 'Reason for manual trigger'
-      required: false
-      default: 'Testing AKS invoke from dev branch'
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Testing AKS invoke from dev branch'
 
 jobs:
   login:
@@ -70,7 +70,7 @@ jobs:
           echo "USER=${GITHUB_ACTOR}" >> $GITHUB_ENV
           echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
 
-      - name: Prepare applicaton configuration template file
+      - name: Prepare application configuration template file
         run: |
           mkdir -p configurations/"$BRANCH"
           sed -e "s|BRANCH|$BRANCH|g" \
@@ -111,7 +111,7 @@ jobs:
             --name ${{ secrets.AKS_DEV_CLUSTER_NAME }} \
             --command "kubectl get ns '${BRANCH}' || kubectl create ns '${BRANCH}'"
 
-      - name: Apply applicaiton configuration on new namespace
+      - name: Apply application configuration on new namespace
         run: |
           az aks command invoke \
             --resource-group ${{ secrets.AKS_DEV_RESOURCE_GROUP }} \
