@@ -1,0 +1,151 @@
+name: Test Branch Lifecycle
+
+on:
+  push:
+    branches:
+      - gha-workflow-branch
+
+#   TBD: Require to add branch protection on branch lifecycle
+#     branches-ignore:
+#       - main
+#       - dev
+#   delete:
+#     branches-ignore:
+#       - main
+#       - dev
+
+# TBD: This needs to remove after testing
+  workflow_dispatch:
+    inputs:
+      reason:
+      description: 'Reason for manual trigger'
+      required: false
+      default: 'Testing AKS invoke from dev branch'
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_DEV }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AKS_DEV_RESOURCE_GROUP: ${{ secrets.AZURE_DEV_RESOURCE_GROUP }}
+      AKS_DEV_CLUSTER_NAME: ${{ secrets.AZURE_DEV_CLUSTER_NAME }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Azure login
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_DEV }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run AKS command
+        run: |
+          az aks command invoke \
+            --resource-group "$AKS_DEV_RESOURCE_GROUP" \
+            --name "$AKS_DEV_CLUSTER_NAME" \
+            --command "kubectl get nodes"
+
+
+  prepare-git:
+    runs-on: ubuntu-latest
+    needs: login
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Git Metadata
+        run: |
+          echo "BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          echo "REPO=https://github.com/${GITHUB_REPOSITORY}.git" >> $GITHUB_ENV
+          echo "USER=${GITHUB_ACTOR}" >> $GITHUB_ENV
+          echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
+
+      - name: Prepare applicaton configuration template file
+        run: |
+          mkdir -p configurations/"$BRANCH"
+          sed -e "s|BRANCH|$BRANCH|g" \
+              -e "s|REPO|$REPO|g" \
+              -e "s|USERNAME|$USER|g" \
+              -e "s|EMAIL|$EMAIL|g" \
+              branch-template/azure/application.template \
+              > configurations/"$BRANCH"/application.yaml
+          sed -e "s|BRANCH|$BRANCH|g" \
+              branch-template/azure/values.template \
+              > configurations/"$BRANCH"/values.yaml
+          cat configurations/"$BRANCH"/application.yaml
+          cat configurations/"$BRANCH"/values.yaml
+
+      - name: Coniguration update for branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "$USER"
+          git config user.email "$EMAIL"
+          git add configurations/"${BRANCH}"
+          git commit -m "Config update for [${BRANCH}]" || echo "Nothing to commit"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git HEAD:${BRANCH}
+
+
+  deploy-aks:
+    # if: |
+    #   github.event_name == 'push' &&
+    #   !contains('main dev', github.ref_name)
+    runs-on: ubuntu-latest
+    needs: prepare-git
+    steps:
+      - name: Create namespace
+        run: |
+          az aks command invoke \
+            --resource-group ${{ secrets.AKS_DEV_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_DEV_CLUSTER_NAME }} \
+            --command "kubectl get ns '${BRANCH}' || kubectl create ns '${BRANCH}'"
+
+      - name: Apply applicaiton configuration on new namespace
+        run: |
+          az aks command invoke \
+            --resource-group ${{ secrets.AKS_DEV_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_DEV_CLUSTER_NAME }} \
+            --command "kubectl apply -f namespace.yaml && kubectl apply -f argocd-apps/${BRANCH}/application.yaml"
+
+ 
+  # TBD: Require to test - Delete branch action
+  # cleanup:
+  #   if: |
+  #     github.event_name == 'delete' &&
+  #     github.event.ref_type == 'branch' &&
+  #     !contains('main dev', github.event.ref)
+  #  runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Force delete namespace and jobs
+  #       run: |
+  #         az aks command invoke \
+  #           --resource-group ${{ secrets.AKS_DEV_RESOURCE_GROUP }} \
+  #           --name ${{ secrets.AKS_DEV_CLUSTER_NAME }} \
+  #           --command "
+  #             NS='${BRANCH}';
+  #             echo 'Deleting ArgoCD application: \$NS...';
+  #             kubectl delete application \$NS -n argocd --ignore-not-found=true;
+  #             sleep 5;
+  #             echo 'Cleaning up namespace: \$NS...';
+  #             job_names=\$(kubectl get jobs -n \$NS -o custom-columns=NAME:.metadata.name --no-headers 2>/dev/null || true);
+  #             if [ -n \"\$job_names\" ]; then
+  #               echo \"Found jobs to clean:\";
+  #               echo \"\$job_names\" | while read job_name; do
+  #                 kubectl patch job \$job_name -n \$NS --type='json' -p='[{\"op\": \"remove\", \"path\": \"/metadata/finalizers\"}]' || true;
+  #                 kubectl delete job \$job_name -n \$NS --ignore-not-found=true --timeout=30s || true;
+  #               done;
+  #             fi;
+  #             kubectl delete namespace \$NS --ignore-not-found=true;
+  #             echo 'Namespace \$NS cleanup initiated.';
+  #           "
