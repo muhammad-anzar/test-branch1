@@ -40,23 +40,6 @@ jobs:
         env:
           GITHUB_REF: ${{ github.ref }}
 
-
-      - name: Create ArgoCD Configs
-        run: |
-          mkdir -p configurations/"$BRANCH"
-
-          sed -e "s|BRANCH|$BRANCH|g" \
-              -e "s|REPO|$REPO|g" \
-              -e "s|USERNAME|$USER|g" \
-              -e "s|EMAIL|$EMAIL|g" \
-              branch-template/minikube/hello-app-argocd.template \
-              > configurations/"$BRANCH"/hello-app-argocd.yaml
-
-          # sed -e "s|BRANCH|$BRANCH|g" \
-          #     -e "s|USERNAME|$USER|g" \
-          #     -e "s|EMAIL|$EMAIL|g" \
-          #     branch-template/minikube/values.template \
-          #     > configurations/"$BRANCH"/values.yaml
       - name: Create ArgoCD application for new branch
         run: |
           echo "Applying ArgoCD Application manifest to context minikube..."
@@ -75,16 +58,6 @@ jobs:
       #   env:
       #     BRANCH: ${{ github.ref_name }}
 
-      - name: Push changes with PAT
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_PAT }}
-          BRANCH: ${{ github.ref_name }}
-        run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "actions@github.com"
-          git add configurations/"$BRANCH"
-          git commit -m "Update config for [$BRANCH]" || echo "Nothing to commit"
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/muhammad-anzar/test-branch1.git HEAD:$BRANCH
 
   cleanup:
     if: |
