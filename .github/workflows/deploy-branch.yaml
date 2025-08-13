@@ -9,6 +9,13 @@ on:
     branches-ignore:
       - main
       - dev
+# TBD: This needs to remove after testing
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Testing AKS invoke from dev branch'
 
 jobs:
   deploy:
