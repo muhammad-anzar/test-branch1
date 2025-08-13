@@ -35,17 +35,33 @@ jobs:
           TOKEN: ${{ secrets.PAT }}
         run: |
           for REPO in $REPOS; do
-            echo "🔍 Checking if branch '$BRANCH' exists in $REPO..."
+            echo "Processing repository: $REPO"
+      
+            # Check if branch exists
             if git ls-remote --exit-code --heads https://x-access-token:$TOKEN@github.com/$REPO.git "$BRANCH" > /dev/null; then
-              echo "✅ Branch found. Proceeding to delete..."
+              echo "Branch '$BRANCH' exists. Deleting branch..."
               git init --quiet
               git config user.name "$USER"
               git config user.email "$EMAIL"
               git remote add origin https://x-access-token:$TOKEN@github.com/$REPO.git
+              # Delete branch remotely
               git push origin --delete "$BRANCH"
+              echo "Deleted branch '$BRANCH' from $REPO"
+              git fetch origin main --depth=1
+              git checkout main
+              # Remove configuration folder for the branch
+              CONFIG_PATH="configurations/$BRANCH"
+              if [ -d "$CONFIG_PATH" ]; then
+                git rm -r "$CONFIG_PATH"
+                git commit -m "Remove configuration for deleted branch $BRANCH" || echo "Nothing to commit"
+                git push origin main
+                echo "Deleted configuration folder '$CONFIG_PATH' from dev branch"
+              else
+                echo "Configuration folder '$CONFIG_PATH' not found in dev branch. Skipping."
+              fi
+      
               rm -rf .git
-              echo "🗑️ Deleted branch '$BRANCH' from $REPO"
             else
-              echo "⚠️ Branch '$BRANCH' does not exist in $REPO. Skipping."
+              echo "Branch '$BRANCH' does not exist in $REPO. Skipping."
             fi
           done
