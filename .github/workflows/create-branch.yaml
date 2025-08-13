@@ -57,10 +57,23 @@ jobs:
         shell: bash
         run: |
           echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
+          echo "REPO=git@github.com/${GITHUB_REPOSITORY}.git" >> $GITHUB_ENV
           git config user.name "${{ github.actor }}"
           git config user.email "$EMAIL"
-          git checkout -b "$NAMESPACE"
-          git push -u origin "$NAMESPACE"
+          echo "BRANCH=$NAMESPACE" >> $GITHUB_ENV
+          echo "USER=${GITHUB_ACTOR}" >> $GITHUB_ENV
+          git checkout -b "$BRANCH"
+          mkdir -p configurations/"$BRANCH"
+          sed -e "s|BRANCH|$BRANCH|g" \
+              -e "s|REPO|$REPO|g" \
+              -e "s|USERNAME|$USER|g" \
+              -e "s|EMAIL|$EMAIL|g" \
+              branch-template/minikube/hello-app-argocd.template \
+              > configurations/"$BRANCH"/hello-app-argocd.yaml
+          cat configurations/"$BRANCH"/hello-app-argocd.yaml
+          git add configurations/"${BRANCH}"
+          git commit -m "Initial config update for [${BRANCH}]" || echo "Nothing to commit"
+          git push -u origin "$BRANCH"
 
       - name: Checkout test-branch repository
         uses: actions/checkout@v4
