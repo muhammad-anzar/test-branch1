@@ -24,7 +24,8 @@ jobs:
           echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
           echo "REPO=https://github.com/${GITHUB_REPOSITORY}.git" >> $GITHUB_ENV
           echo "USER=${{ github.actor }}" >> $GITHUB_ENV
-          echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
+          EMAIL=$(git log -1 --pretty=format:'%ae' 2>/dev/null || echo "${GITHUB_ACTOR}@users.noreply.github.com")
+          echo "EMAIL=$EMAIL" >> $GITHUB_ENV
 
       - name: Set up kubectl
         run: |
@@ -46,19 +47,6 @@ jobs:
           cat configurations/"$BRANCH"/hello-app-argocd.yaml
           kubectl -n argocd apply --context=minikube -f configurations/"$BRANCH"/hello-app-argocd.yaml
   
-      # - name: Commit & Push Configuration Files
-      #   run: |
-      #     git config user.name "${{ github.actor }}"
-      #     git config user.email "$(git log -1 --pretty=format:'%ae')"
-          
-      #     git status
-      #     git add configurations/"$BRANCH"
-      #     git commit -m "Initialize deployment config for branch [$BRANCH]"
-      #     git push --set-upstream origin "$BRANCH"
-      #   env:
-      #     BRANCH: ${{ github.ref_name }}
-
-
   cleanup:
     if: |
       github.event_name == 'delete' &&
