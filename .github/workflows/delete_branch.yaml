@@ -48,6 +48,7 @@ jobs:
               git push origin --delete "$BRANCH"
               echo "Deleted branch '$BRANCH' from $REPO"
               git fetch origin main --depth=1
+              git clean -fd
               git checkout main
               # Remove configuration folder for the branch
               CONFIG_PATH="configurations/$BRANCH"
