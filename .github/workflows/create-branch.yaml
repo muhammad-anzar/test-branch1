@@ -61,7 +61,8 @@ jobs:
           echo "EMAIL=$EMAIL" >> $GITHUB_ENV
           echo "REPO=git@github.com/${GITHUB_REPOSITORY}.git" >> $GITHUB_ENV
           git config user.email "$EMAIL"
-          echo "BRANCH=$NAMESPACE" >> $GITHUB_ENV
+          BRANCH="$NAMESPACE"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "USER=${GITHUB_ACTOR}" >> $GITHUB_ENV
           git checkout -b "$BRANCH"
           mkdir -p configurations/"$BRANCH"
