@@ -56,9 +56,10 @@ jobs:
       - name: Create & push branch in current repo
         shell: bash
         run: |
-          echo "EMAIL=$(git log -1 --pretty=format:'%ae')" >> $GITHUB_ENV
-          echo "REPO=git@github.com/${GITHUB_REPOSITORY}.git" >> $GITHUB_ENV
           git config user.name "${{ github.actor }}"
+          EMAIL=$(git log -1 --pretty=format:'%ae' 2>/dev/null || echo "${GITHUB_ACTOR}@users.noreply.github.com")
+          echo "EMAIL=$EMAIL" >> $GITHUB_ENV
+          echo "REPO=git@github.com/${GITHUB_REPOSITORY}.git" >> $GITHUB_ENV
           git config user.email "$EMAIL"
           echo "BRANCH=$NAMESPACE" >> $GITHUB_ENV
           echo "USER=${GITHUB_ACTOR}" >> $GITHUB_ENV
